@@ -1,0 +1,591 @@
+پیوست ها :
+
+کد های مربوط به وارد کردن داده ها و کتابخانه های لازم در یادگیری ماشین و انتخاب مقیاس مناسب برای داده ها :
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error, mean_absolute_error , r2_score
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+# scaler
+scale=MinMaxScaler()
+from sklearn.model_selection import GridSearchCV
+# reading data set
+data=pd.read_excel("dataset.xlsx")
+data.columns=['relative_compactness', 'surface_area', 'wall_area', 'roof_area', 'overall_height',
+                'orientation', 'glazing_area', 'glazing_area_distribution', 'heating_load', 'cooling_load']                # 
+plt.figure(figsize=(12, 6))
+features.boxplot()
+plt.title('Box Plot for Features')
+plt.show()
+
+prop_na = 0.01 # proportion of NaNs you want in the data
+data = data.mask(np.random.random(data.shape) < prop_na)
+dataset=data.dropna(axis=0)
+X=dataset[['relative_compactness', 'surface_area', 'wall_area', 'roof_area', 'overall_height',
+'orientation', 'glazing_area', 'glazing_area_distribution']]
+y=dataset[['heating_load','cooling_load']]
+y1=y['heating_load']
+y2=y['cooling_load']
+X_train,X_test,y_train,y_test=train_test_split(X,y ,test_size=.2,random_state=42)
+X_train=scale.fit_transform(X_train)
+X_test=scale.fit_transform(X_test)
+X_train, X_test, y1_train, y1_test, y2_train, y2_test = train_test_split(X, y1, y2, test_size=0.2, random_state = 42)
+
+
+کد های مربوط به رسم نمودار میله ایی برای داده ها:
+# Define the number of subplots
+num_features = 8
+num_outputs = 2
+
+# Create subplots
+fig, axes = plt.subplots(num_outputs, num_features, figsize=(21, 8))
+
+# Flatten the 2D array of subplots
+axes = axes.flatten()
+
+# Loop through features and outputs to create subplots
+for i in range(num_outputs):
+    for j in range(num_features):
+        # Create a subplot for each combination of feature and output
+        axes[i * num_features + j].scatter(data.iloc[:, j], data.iloc[:, num_features + i], alpha=0.5)
+        axes[i * num_features + j].set_title(f'{data.columns[j]} vs {data.columns[num_features + i]}')
+
+# Adjust layout to prevent overlapping
+plt.tight_layout()
+
+# Show the plots
+plt.show()
+
+
+کد های مربوط به رسم مقدار واقعی خروجی تست و مقدار پیش بینی شده :
+
+from sklearn.model_selection import train_test_split
+x_train,X_test,y_train,y_test=train_test_split(X,y ,test_size=.2,random_state=42)
+x_ax = range(len(y_test))
+plt.figure(figsize=(20,10))
+plt.subplot(2,1,1)
+plt.plot(x_ax, y_test, label="Actual Heating")
+plt.plot(x_ax, y_pred, label="Predicted Heating")
+plt.title("Heating test and predicted data")
+plt.xlabel('X-axis')
+plt.ylabel('Heating load (kW)')
+plt.legend(loc='best',fancybox=True, shadow=True)
+plt.grid(True)
+
+plt.subplot(2,1,2)
+plt.plot(x_ax, y2_test, label="Actual Cooling")
+plt.plot(x_ax, y2_pred, label="Predicted Cooling")
+plt.title("Cooling test and predicted data")
+plt.xlabel('X-axis')
+plt.ylabel('Cooling load (kW)')
+plt.legend(loc='best',fancybox=True, shadow=True)
+plt.grid(True)
+
+plt.show()
+
+کد های مربوط به الگوریتم گرادیان بوستینگ 
+
+
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import mean_squared_error
+
+
+# Define the hyperparameter grid
+param_grid = {
+    'estimator__n_estimators': [50, 100, 200],
+    'estimator__learning_rate': [0.01, 0.1, 0.2],
+    'estimator__max_depth': [3, 5, 7],
+    # Add other hyperparameters as needed
+}
+
+# Create MultiOutputRegressor with GridSearchCV
+multioutput_regressor = MultiOutputRegressor(GradientBoostingRegressor())
+grid_search = GridSearchCV(
+    estimator=multioutput_regressor,
+    param_grid=param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Choose an appropriate scoring metric
+    verbose=2
+)
+
+# Fit the model
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params_gradient_boosting = grid_search.best_params_
+
+# Use the best parameters to create the final model
+final_model_gradient_boosting = MultiOutputRegressor(
+    GradientBoostingRegressor(
+        n_estimators=best_params_gradient_boosting['estimator__n_estimators'],
+        learning_rate=best_params_gradient_boosting['estimator__learning_rate'],
+        max_depth=best_params_gradient_boosting['estimator__max_depth'],
+
+    )
+)
+final_model_gbr= GradientBoostingRegressor(
+        n_estimators=best_params_gradient_boosting['estimator__n_estimators'],
+        learning_rate=best_params_gradient_boosting['estimator__learning_rate'],
+        max_depth=best_params_gradient_boosting['estimator__max_depth'],
+
+    )
+
+# Fit the final model
+final_model_gradient_boosting.fit(X_train, y_train)
+
+# Make predictions
+y_pred_gradient_boosting = final_model_gradient_boosting.predict(X_test)
+# prediction of heating load with the gradient boosting
+final_model_gbr.fit(X_train,y1_train)
+y1_pred=final_model_gbr.predict(X_test)
+# prediction of cooling load with the gradient boosting
+final_model_gbr.fit(X_train,y2_train)
+y2_pred=final_model_gbr.predict(X_test)
+print(y1_pred)
+print(y2_pred)
+
+# Evaluate the model
+mse_gradient_boosting = mean_squared_error(y_test, y_pred_gradient_boosting)
+mae_gradient_boosting=mean_absolute_error(y_test,y_pred_gradient_boosting)
+r2_gradient_boosting=r2_score(y_test,y_pred_gradient_boosting)
+print(f'Mean Squared Error: {mse_gradient_boosting}')
+print(f'mean absolute error: {mae_gradient_boosting}')
+print(f'r2score gradinent boosting :{r2_gradient_boosting}')
+
+
+from sklearn.model_selection import train_test_split
+X_train,X_test,y_train,y_test=train_test_split(X,y ,test_size=.2,random_state=42)
+x_ax = range(len(y_test))
+plt.figure(figsize=(20,10))
+plt.subplot(2,1,1)
+plt.plot(x_ax, y1_test, label="Actual Heating load ")
+plt.plot(x_ax, y1_pred, label="Predicted Heating load ")
+plt.title("actual heating and cooling load vs predicted values ")
+plt.xlabel('X-axis')
+plt.ylabel('Heating load (kW)')
+plt.legend(loc='best',fancybox=True, shadow=True)
+plt.grid(True)
+
+plt.subplot(2,1,2)
+plt.plot(x_ax, y2_test, label="Actual Cooling")
+plt.plot(x_ax, y2_pred, label="Predicted Cooling")
+plt.title("Cooling load test and predicted data")
+plt.xlabel('X-axis')
+plt.ylabel('Cooling load (kW)')
+plt.legend(loc='best',fancybox=True, shadow=True)
+plt.grid(True)
+
+plt.show()
+
+کد های مربوط به شبکه های عصبی 
+
+#mlp_model
+from sklearn.neural_network import MLPRegressor
+# Create MLPRegressor
+mlp_regressor = MLPRegressor()
+# Create MultiOutputRegressor with MLPRegressor as the base estimator
+multioutput_regressor = MultiOutputRegressor(estimator=mlp_regressor)
+
+# Define hyperparameter grid
+param_grid = {
+    'estimator__hidden_layer_sizes': [(50, 50), (100, 100), (50, 100, 50)],
+    'estimator__activation': ['relu', 'tanh', 'logistic'],
+    'estimator__alpha': [0.0001, 0.001, 0.01],
+
+}
+
+# Create GridSearchCV
+grid_search = GridSearchCV(
+    estimator=multioutput_regressor,
+    param_grid=param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Use MSE for grid search (you can choose others)
+    verbose=2
+)
+
+# Fit the model
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params = grid_search.best_params_
+
+# Use the best parameters to create the final model
+final_model = MultiOutputRegressor(
+    MLPRegressor(
+        hidden_layer_sizes=best_params['estimator__hidden_layer_sizes'],
+        activation=best_params['estimator__activation'],
+        alpha=best_params['estimator__alpha'],
+        # Add other hyperparameters as needed
+    )
+)
+
+# Fit the final model
+final_model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = final_model.predict(X_test)
+
+# Calculate the evaluation metrics
+mae_mlp = mean_absolute_error(y_test, y_pred)
+mse_mlp = mean_squared_error(y_test, y_pred)
+r2_mlp = r2_score(y_test, y_pred)
+
+print(f'Mean Absolute Error (MAE): {mae_mlp}')
+print(f'Mean Squared Error (MSE): {mse_mlp}')
+print(f'R2 Score: {r2_mlp}')
+
+
+کد های مربوط به ماشین بردار پشتیبان 
+
+from sklearn.svm import SVR
+# Create SVR
+svr_regressor = SVR()
+
+# Create MultiOutputRegressor with SVR as the base estimator
+multioutput_regressor = MultiOutputRegressor(estimator=svr_regressor)
+
+# Define hyperparameter grid
+param_grid = {
+    'estimator__kernel': ['linear', 'poly', 'rbf'],
+    'estimator__C': [0.1, 1, 10],
+    'estimator__epsilon': [0.01, 0.1, 0.2],
+
+}
+
+# Create GridSearchCV
+grid_search = GridSearchCV(
+    estimator=multioutput_regressor,
+    param_grid=param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Use MSE for grid search (you can choose others)
+    verbose=2
+)
+
+# Fit the model
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params = grid_search.best_params_
+
+# Use the best parameters to create the final model
+final_model = MultiOutputRegressor(
+    SVR(
+        kernel=best_params['estimator__kernel'],
+        C=best_params['estimator__C'],
+        epsilon=best_params['estimator__epsilon'],
+        # Add other hyperparameters as needed
+    )
+)
+
+# Fit the final model
+final_model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = final_model.predict(X_test)
+
+# Calculate the evaluation metrics
+mae_svr = mean_absolute_error(y_test, y_pred)
+mse_svr = mean_squared_error(y_test, y_pred)
+r2_svr = r2_score(y_test, y_pred)
+
+print(f'Mean Absolute Error (MAE): {mae_svr}')
+print(f'Mean Squared Error (MSE): {mse_svr}')
+print(f'R2 Score: {r2_svr}')
+
+
+کد های مربوط به جنگل تصادفی 
+
+from sklearn.ensemble import RandomForestRegressor
+
+# Create RandomForestRegressor
+rf_regressor = RandomForestRegressor()
+
+# Create MultiOutputRegressor with RandomForestRegressor as the base estimator
+multioutput_regressor = MultiOutputRegressor(estimator=rf_regressor)
+
+# Define hyperparameter grid
+param_grid = {
+    'estimator__n_estimators': [50, 100, 200],
+    'estimator__max_depth': [None, 10, 20],
+    'estimator__min_samples_split': [2, 5, 10],
+
+}
+
+# Create GridSearchCV
+grid_search = GridSearchCV(
+    estimator=multioutput_regressor,
+    param_grid=param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Use MSE for grid search (you can choose others)
+    verbose=2
+)
+
+# Fit the model
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params_random_forest = grid_search.best_params_
+
+# Use the best parameters to create the final model
+final_model = MultiOutputRegressor(
+    RandomForestRegressor(
+        n_estimators=best_params_random_forest['estimator__n_estimators'],
+        max_depth=best_params_random_forest['estimator__max_depth'],
+        min_samples_split=best_params_random_forest['estimator__min_samples_split'],
+        # Add other hyperparameters as needed
+    )
+)
+
+# Fit the final model
+final_model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = final_model.predict(X_test)
+
+# Calculate the evaluation metrics
+mae_random_forest = mean_absolute_error(y_test, y_pred)
+mse_random_forest = mean_squared_error(y_test, y_pred)
+r2_random_forest = r2_score(y_test, y_pred)
+
+print(f'Mean Absolute Error (MAE): {mae_random_forest}')
+print(f'Mean Squared Error (MSE): {mse_random_forest}')
+print(f'R2 Score: {r2_random_forest}')
+
+
+کد های مربوط به انتخاب مهمترین پارامتر:
+# Plot feature importance
+feature_importance = np.mean([tree.feature_importances_ for tree in final_model.estimators_], axis=0)
+feature_names = ['relative_compactness', 'surface_area', 'wall_area', 'roof_area', 'overall_height',
+'orientation', 'glazing_area', 'glazing_area_distribution']
+
+# Sort features by importance
+sorted_idx = np.argsort(feature_importance)[::-1]
+
+# Plot
+plt.figure(figsize=(10, 6))
+plt.bar(range(X_train.shape[1]), feature_importance[sorted_idx], align="center",tick_label=['relative_compactness', 'surface_area', 'wall_area', 'roof_area', 'overall_height',
+'orientation', 'glazing_area', 'glazing_area_distribution'])
+plt.xticks(range(X_train.shape[1]), np.array(feature_names)[sorted_idx], rotation=45)
+plt.xlabel("Feature")
+plt.ylabel("Importance")
+plt.title("Random Forest Feature Importance")
+plt.show()
+
+کد های مربوط به الگوریتم رگراسیون خطی :
+
+
+
+from sklearn.linear_model import MultiTaskLasso, MultiTaskElasticNet
+: 
+
+
+# Create MultiTaskLasso (Lasso regression for multioutput)
+lasso_regressor = MultiTaskLasso()
+
+# Create MultiTaskElasticNet (ElasticNet regression for multioutput)
+ridge_regressor = MultiTaskElasticNet()
+
+# Define hyperparameter grids for Lasso and Ridge
+lasso_param_grid = {
+    'alpha': [0.1, 0.5, 1.0],
+    'tol': [1e-4, 1e-3, 1e-2],
+}
+
+ridge_param_grid = {
+    'alpha': [0.1, 0.5, 1.0],
+    'tol': [1e-4, 1e-3, 1e-2],
+}
+
+# Create GridSearchCV for Lasso
+lasso_grid_search = GridSearchCV(
+    estimator=lasso_regressor,
+    param_grid=lasso_param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Use MSE for grid search (you can choose others)
+    verbose=2
+)
+
+# Create GridSearchCV for Ridge
+ridge_grid_search = GridSearchCV(
+    estimator=ridge_regressor,
+    param_grid=ridge_param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',
+    verbose=2
+)
+
+# Fit the models
+lasso_grid_search.fit(X_train, y_train)
+ridge_grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params_lasso = lasso_grid_search.best_params_
+best_params_ridge = ridge_grid_search.best_params_
+
+# Use the best parameters to create the final models
+final_model_lasso = MultiTaskLasso(alpha=best_params_lasso['alpha'], tol=best_params_lasso['tol'])
+final_model_ridge = MultiTaskElasticNet(alpha=best_params_ridge['alpha'], tol=best_params_ridge['tol'])
+
+# Fit the final models
+final_model_lasso.fit(X_train, y_train)
+final_model_ridge.fit(X_train, y_train)
+
+# Make predictions
+y_pred_lasso = final_model_lasso.predict(X_test)
+y_pred_ridge = final_model_ridge.predict(X_test)
+
+# Calculate the evaluation metrics for Lasso
+mae_lasso = mean_absolute_error(y_test, y_pred_lasso)
+mse_lasso = mean_squared_error(y_test, y_pred_lasso)
+r2_lasso = r2_score(y_test, y_pred_lasso)
+
+print(f'Lasso Results:')
+print(f'Mean Absolute Error (MAE): {mae_lasso}')
+print(f'Mean Squared Error (MSE): {mse_lasso}')
+print(f'R2 Score: {r2_lasso}')
+
+# Calculate the evaluation metrics for Ridge
+mae_ridge = mean_absolute_error(y_test, y_pred_ridge)
+mse_ridge = mean_squared_error(y_test, y_pred_ridge)
+r2_ridge = r2_score(y_test, y_pred_ridge)
+
+print(f'Ridge Results:')
+print(f'Mean Absolute Error (MAE): {mae_ridge}')
+print(f'Mean Squared Error (MSE): {mse_ridge}')
+print(f'R2 Score: {r2_ridge}')
+
+
+
+کد های مربوط به الگوریتم درخت تصمیم:
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.multioutput import MultiOutputRegressor
+
+# Create DecisionTreeRegressor
+dt_regressor = DecisionTreeRegressor()
+
+multioutput_regressor = MultiOutputRegressor(estimator=dt_regressor)
+
+# Define hyperparameter grid for Decision Tree
+param_grid = {
+    'estimator__max_depth': [None, 5, 10, 15],
+    'estimator__min_samples_split': [2, 5, 10],
+    'estimator__min_samples_leaf': [1, 2, 4],
+    'estimator__max_features': [None, 'sqrt', 'log2'],
+}
+
+# Create GridSearchCV
+grid_search = GridSearchCV(
+    estimator=multioutput_regressor,
+    param_grid=param_grid,
+    cv=3,
+    scoring='neg_mean_squared_error',  # Use MSE for grid search (you can choose others)
+    verbose=2
+)
+
+# Fit the model
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters
+best_params_decision_tree = grid_search.best_params_
+
+# Use the best parameters to create the final model
+final_model_decision_tree = MultiOutputRegressor(
+    DecisionTreeRegressor(
+        max_depth=best_params_decision_tree ['estimator__max_depth'],
+        min_samples_split=best_params_decision_tree ['estimator__min_samples_split'],
+        min_samples_leaf=best_params_decision_tree ['estimator__min_samples_leaf'],
+        max_features=best_params_decision_tree ['estimator__max_features'],
+    )
+)
+
+# Fit the final model
+final_model_decision_tree.fit(X_train, y_train)
+
+# Make predictions
+y_pred = final_model_decision_tree.predict(X_test)
+
+# Calculate the evaluation metrics
+mae_decision_tree = mean_absolute_error(y_test, y_pred)
+mse_decision_tree = mean_squared_error(y_test, y_pred)
+r2_decision_tree = r2_score(y_test, y_pred)
+
+print(f'Mean Absolute Error (MAE): {mae_decision_tree}')
+print(f'Mean Squared Error (MSE): {mse_decision_tree}')
+print(f'R2 Score: {r2_decision_tree}')
+
+
+کد های مربوط به رسم نمودار میله ایی برای بررسی بهترین الگوریتم یادگیری ماشین:
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Sample data
+models = ['GB','lasso','Ridge','RF','DT','MLP','SVR']
+mae_values = [mae_gradient_boosting, mae_lasso, mae_ridge,mae_random_forest,mae_decision_tree,mae_mlp,mae_svr]
+mse_values=[mse_gradient_boosting, mse_lasso, mse_ridge,mse_random_forest,mse_decision_tree,mse_mlp,mse_svr]
+r2_values=[r2_gradient_boosting, r2_lasso, r2_ridge,r2_random_forest,r2_decision_tree,r2_mlp,r2_svr]
+# MAE comparison
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+sns.barplot(x=models, y=mae_values, ax=axes[0])
+axes[0].set_title('Mean Absolute Error (MAE) ')
+# MSE comparison
+sns.barplot(x=models, y=mse_values, ax=axes[1])
+axes[1].set_title('Mean squered Error (MsE) ')
+
+# R2Score Comparison
+sns.barplot(x=models, y=r2_values, ax=axes[2])
+axes[2].set_title('R2Score')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Assuming you have data for three algorithms
+
+models = ['GB','lasso','Ridge','RF','DT','MLP','SVR']
+mae_values = [mae_gradient_boosting, mae_lasso, mae_ridge,mae_random_forest,mae_decision_tree,mae_mlp,mae_svr]
+mse_values=[mse_gradient_boosting, mse_lasso, mse_ridge,mse_random_forest,mse_decision_tree,mse_mlp,mse_svr]
+r2_values=[r2_gradient_boosting, r2_lasso, r2_ridge,r2_random_forest,r2_decision_tree,r2_mlp,r2_svr]
+
+# Normalize the scores to bring them to the same scale (0 to 1)
+max_values = [max(mae_values), max(mse_values), max(r2_values)]
+mae_normalized = [score / max_values[0] for score in mae_values]
+mse_normalized = [score / max_values[1] for score in mse_values]
+r2_normalized = [score / max_values[2] for score in r2_values]
+
+# Number of categories
+categories = len(models)
+
+# Create an array with evenly spaced values for angles
+angles = np.linspace(0, 2 * np.pi, categories, endpoint=False).tolist()
+
+# The plot is circular, so we need to append the starting point at the end to close the circle
+mae_normalized += mae_normalized[:1]
+mse_normalized += mse_normalized[:1]
+r2_normalized += r2_normalized[:1]
+angles += angles[:1]
+
+# Plotting
+fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
+ax.fill(angles, mae_normalized, color='red', alpha=0.25, label='MAE')
+ax.fill(angles, mse_normalized, color='blue', alpha=0.25, label='MSE')
+ax.fill(angles, r2_normalized, color='green', alpha=0.25, label='R2 Score')
+
+# Add labels and legend
+ax.set_thetagrids(np.degrees(angles[:-1]), models)
+ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+
+# Show the plot
+plt.show()
